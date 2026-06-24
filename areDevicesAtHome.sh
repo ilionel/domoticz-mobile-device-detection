@@ -31,7 +31,6 @@ declare -i currentIDX=0
 
 scriptName="${0##*/}"
 
-arglist=$*
 
 function printUsage() {
     cat <<EOF
@@ -97,25 +96,24 @@ function checkAvailability() {
 
   for i in "1st" "2nd"
   do
-    if [ -n "${bluetoothmac}" ] && l2ping -c1 -t${timeout} "${bluetoothmac}" > /dev/null 2>&1 ; then
+    if [ -n "${bluetoothmac}" ] && l2ping -c1 -t"${timeout}" "${bluetoothmac}" > /dev/null 2>&1 ; then
       [ -z "$quiet" ] && echo "$(date --iso-8601=seconds) - $name is reachable thanks to Bluetooth (at $i attempt)"
       return 1
-    elif [ -n "${IP}" ] && ping -c1 -W${timeout} "${IP}" > /dev/null 2>&1 ; then
+    elif [ -n "${IP}" ] && ping -c1 -W"${timeout}" "${IP}" > /dev/null 2>&1 ; then
       [ -z "$quiet" ] && echo "$(date --iso-8601=seconds) - $name is reachable thanks to Wifi (at $i attempt)"
       return 1
-    else
-      [ -z "$quiet" ] && echo "$(date --iso-8601=seconds) - $name is unreachable"
-      return 0
     fi
-    sleep ${interval}
+    sleep "${interval}"
   done
+  [ -z "$quiet" ] && echo "$(date --iso-8601=seconds) - $name is unreachable"
+  return 0
 }
 
 function checkDomoticzStatus() {
   local -r IDX=$1
   # Check Online / Offline state of Domoticz device
   if [ -z "${domoticzStatus["$IDX"]}" ]; then
-    domoticzStatus["$IDX"]=$(curl -s "http://"$domoticzserverip"/json.htm?type=devices&rid="$IDX"" | grep '"Data" :' | awk '{ print $3 }' | sed 's/[!@#\$%",^&*()]//g')
+    domoticzStatus["$IDX"]=$(curl -s "http://${domoticzserverip}/json.htm?type=devices&rid=${IDX}" | grep '"Data" :' | awk '{ print $3 }' | sed 's/[!@#\$%",^&*()]//g')
   fi
   if [ "${domoticzStatus["$IDX"]}" = "On" ]; then return 1
   elif [ "${domoticzStatus["$IDX"]}" = "Off" ]; then return 0
@@ -126,7 +124,7 @@ function checkDomoticzStatus() {
 function updateDomoticzStatus() {
   local -r IDX=$1
   local -r -i boolstatus=$2
-  updatesatus=$(curl -s "http://"$domoticzserverip"/json.htm?type=command&param=switchlight&idx="$IDX"&switchcmd=${switch[$boolstatus]}" | grep '"status" :' | awk '{ print $3 }' | sed 's/[!@#\$%",^&*()]//g')
+  updatesatus=$(curl -s "http://${domoticzserverip}/json.htm?type=command&param=switchlight&idx=${IDX}&switchcmd=${switch[$boolstatus]}" | grep '"status" :' | awk '{ print $3 }' | sed 's/[!@#\$%",^&*()]//g')
   if [ "$updatesatus" = "OK" ]; then
     domoticzStatus["$IDX"]=${switch[$boolstatus]}
     return 0
@@ -137,18 +135,18 @@ function updateDomoticzStatus() {
 function syncWithDomoticz() {
   local -r IDX=$1
   local -r -i boolstatus=$2
-  checkDomoticzStatus $1
+  checkDomoticzStatus "$IDX"
   local -r -i booldomoticzstatus=$?
   # Compare ping result to Domoticz device status
-  if [ $boolstatus -eq $booldomoticzstatus ] ; then
+  if [ "$boolstatus" -eq "$booldomoticzstatus" ] ; then
     [ -z "$quiet" ] && echo "$(date --iso-8601=seconds) - Status \"${switch[$boolstatus]}\" is allready sync with Domoticz"
     return 0
   else
     [ -z "$quiet" ] && echo "$(date --iso-8601=seconds) - Domoticz status is out of sync, correcting..."
     [ -z "$quiet" ] && echo "$(date --iso-8601=seconds) - Update Domoticz (idx $IDX) status to \"${switch[$boolstatus]}\""
-    updateDomoticzStatus $IDX $boolstatus
+    updateDomoticzStatus "$IDX" "$boolstatus"
     local syncstatus=$?
-   if [ $syncstatus -eq 0 ]; then
+   if [ "$syncstatus" -eq 0 ]; then
      [ -z "$quiet" ] && echo "$(date --iso-8601=seconds) - Successfully upgrade status"
      return 0
    else
@@ -164,16 +162,15 @@ function syncDevicesAvailabilityWithDomoticz() {
   do
     checkAvailability "${devices[$device]}"
     status=$?
-    syncWithDomoticz $currentIDX $status
-    [ $? -eq 0 ] && (( syncedDevices++ ))
+    if syncWithDomoticz "$currentIDX" "$status"; then (( syncedDevices++ )); fi
   done
-  if [ ${#devices[@]} -eq $syncedDevices ]; then
+  if [ "${#devices[@]}" -eq "$syncedDevices" ]; then
     [ -z "$quiet" ] && echo "$(date --iso-8601=seconds) - Done! All devices status was successfully synced."
      return 0
    else
-     local -i -r numOfErr=$((${#devices[@]}-$syncedDevices))
+     local -i -r numOfErr=$(( ${#devices[@]} - syncedDevices ))
      [ -z "$quiet" ] && echo "$(date --iso-8601=seconds) - $numOfErr error(s) occured during synchronization :-(("
-     return $numOfErr
+     return "$numOfErr"
   fi
 }
 
@@ -185,4 +182,8 @@ function loop() {
   done
 }
 
-[ $loop -eq 1  ] && loop || syncDevicesAvailabilityWithDomoticz
+if [ "$loop" -eq 1 ]; then
+  loop
+else
+  syncDevicesAvailabilityWithDomoticz
+fi
