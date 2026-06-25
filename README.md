@@ -1,8 +1,9 @@
 # domoticz-mobile-device-detection
 
 [![CI](https://github.com/ilionel/domoticz-mobile-device-detection/actions/workflows/ci.yml/badge.svg)](https://github.com/ilionel/domoticz-mobile-device-detection/actions/workflows/ci.yml)
-Determine if one or many devices (like smartphones) are reachable or not.
-Check are done using Bluetooth (or Wifi detection) and the state are synced with Domoticz "virtuals switches"
+
+Determine whether one or more devices (e.g. smartphones) are reachable,
+using Bluetooth or Wi-Fi, and sync the result to Domoticz **virtual switches**.
 
 ## Warning
 Beta version !
