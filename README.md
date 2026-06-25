@@ -1,11 +1,14 @@
 # domoticz-mobile-device-detection
-Determine if one or many devices (like smartphones) are reachable or not.
-Check are done using Bluetooth (or Wifi detection) and the state are synced with Domoticz "virtuals switches"
 
-## Warrning
+[![CI](https://github.com/ilionel/domoticz-mobile-device-detection/actions/workflows/ci.yml/badge.svg)](https://github.com/ilionel/domoticz-mobile-device-detection/actions/workflows/ci.yml)
+
+Determine whether one or more devices (e.g. smartphones) are reachable,
+using Bluetooth or Wi-Fi, and sync the result to Domoticz **virtual switches**.
+
+## Warning
 Beta version !
 This script are done for my home usage. It was only tested on my Raspberry and it's the first release of it.
-Your are welcome to use it, but with precaution, your are advised !  
+You are welcome to use it, but with precaution — you are advised!  
 
 ## Script Installation
 
@@ -25,8 +28,8 @@ nano areDevicesAtHome.sh
 devices[iPhone]='ab:cd:ef:12:14:56;192.168.1.101;6001'
 devices[Samsung]='12:14:56:ab:cd:ef;192.168.1.101;6002'
 ```
-One line by device.
-Syntaxe are : `'Bluetooth Mac Address;Device Home Fixed IP;Domitocz switch IDX'`
+One line per device.
+Syntax: `'Bluetooth Mac Address;Device Home Fixed IP;Domitocz switch IDX'`
 
 
 ## Run as service
@@ -60,3 +63,16 @@ sudo service domoticz-mobile-device-detection stop
 # if you want to delete from startup:
 sudo update-rc.d -f domoticz-mobile-device-detection remove
 ```
+
+## Development
+
+Shell scripts are linted with [shellcheck](https://www.shellcheck.net/) in CI
+(`.github/workflows/ci.yml`):
+
+```sh
+shellcheck areDevicesAtHome.sh
+shellcheck --severity=warning domoticz-mobile-device-detection.sh
+```
+
+> The scanner needs raw-socket privileges for `l2ping`; instead of running the daemon
+> as root, consider granting `cap_net_raw` to `l2ping`/`ping`.
