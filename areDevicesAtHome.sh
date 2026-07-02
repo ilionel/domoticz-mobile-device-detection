@@ -3,8 +3,8 @@ declare -r domoticzserverip='192.168.0.1'
 declare -A devices # Array of device list
 
 # List of devices like "devices[myPhone]='BT@Mac;Wifi@IP;DomitoczIDX'"
-devices[iPhone]='ab:cd:ef:12:14:56;192.168.1.101;6001'
-devices[Samsung]='12:14:56:ab:cd:ef;192.168.1.101;6002'
+devices[iPhone]='ab:cd:ef:12:14:56;192.168.0.101;6001'
+devices[Samsung]='12:14:56:ab:cd:ef;192.168.0.102;6002'
 
 
 declare -A domoticzStatus
@@ -54,8 +54,8 @@ Synopsis
        Scan in loop $scriptName will operate until interrupted
 
     -d delay
-        Time to wait before rescan for device
-        process by SIGKILL. Default value: $DEFAULT_DELAY seconds.
+        Time to wait between two scan loops (with -l).
+        Default value: $DEFAULT_DELAY seconds.
 
     -q (for quiet)
        Turn off $scriptName’s output.
@@ -79,9 +79,12 @@ while getopts ":ht:i:ld:q" option; do
 done
 shift $((OPTIND - 1))
 
-# $# should be at least 1 (the command to execute), however it may be strictly
-# greater than 1 if the command itself has options.
-if ((help == 1 || timeout <= 0 || interval <= 0 || delay <= 0)); then
+if ((help == 1)); then
+    printUsage
+    exit 0
+fi
+
+if ((timeout <= 0 || interval <= 0 || delay <= 0)); then
     printUsage
     exit 1
 fi
@@ -124,8 +127,8 @@ function checkDomoticzStatus() {
 function updateDomoticzStatus() {
   local -r IDX=$1
   local -r -i boolstatus=$2
-  updatesatus=$(curl -s "http://${domoticzserverip}/json.htm?type=command&param=switchlight&idx=${IDX}&switchcmd=${switch[$boolstatus]}" | grep '"status" :' | awk '{ print $3 }' | sed 's/[!@#\$%",^&*()]//g')
-  if [ "$updatesatus" = "OK" ]; then
+  updatestatus=$(curl -s "http://${domoticzserverip}/json.htm?type=command&param=switchlight&idx=${IDX}&switchcmd=${switch[$boolstatus]}" | grep '"status" :' | awk '{ print $3 }' | sed 's/[!@#\$%",^&*()]//g')
+  if [ "$updatestatus" = "OK" ]; then
     domoticzStatus["$IDX"]=${switch[$boolstatus]}
     return 0
   else return 2
@@ -158,6 +161,9 @@ function syncWithDomoticz() {
 
 function syncDevicesAvailabilityWithDomoticz() {
   local -i syncedDevices=0
+  # Drop the cache so each pass re-queries Domoticz: the device status may have
+  # been changed from outside this script between two loops.
+  domoticzStatus=()
   for device in "${!devices[@]}"
   do
     checkAvailability "${devices[$device]}"
